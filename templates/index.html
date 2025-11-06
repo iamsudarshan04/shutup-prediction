@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShutUpNet - Shut-Up Prediction System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .form-group {
+            margin-bottom: 25px;
+        }
+
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 1em;
+        }
+
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: border 0.3s;
+        }
+
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .predict-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+
+        .predict-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .predict-btn:active {
+            transform: translateY(0);
+        }
+
+        .result {
+            display: none;
+            margin-top: 30px;
+            padding: 30px;
+            background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%);
+            border-radius: 15px;
+            text-align: center;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .result-emoji {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+
+        .result-count {
+            font-size: 3em;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .result-level {
+            font-size: 1.5em;
+            font-weight: 600;
+            margin-bottom: 15px;
+        }
+
+        .danger-meter {
+            width: 100%;
+            height: 30px;
+            background: #e0e0e0;
+            border-radius: 15px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .danger-meter-fill {
+            height: 100%;
+            transition: width 1s ease, background 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .advice {
+            font-size: 1.1em;
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            color: #333;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error {
+            display: none;
+            margin-top: 20px;
+            padding: 15px;
+            background: #fee;
+            color: #c33;
+            border-radius: 8px;
+            border-left: 4px solid #c33;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 ShutUpNet</h1>
+            <p>Predict how many "shut ups" you'll get!</p>
+        </div>
+
+        <div class="content">
+            <form id="predictionForm">
+                <div class="form-group">
+                    <label for="topic">📌 Topic of Conversation</label>
+                    <select id="topic" name="topic" required>
+                        <option value="">Select a topic...</option>
+                        {% for topic in topics %}
+                        <option value="{{ topic }}">{{ topic }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="duration">⏱️ Duration (minutes)</label>
+                        <input type="number" id="duration" name="duration" min="1" max="300" value="60" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="jokes">😂 Jokes Made</label>
+                        <input type="number" id="jokes" name="jokes" min="0" max="20" value="3" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="sarcasm">🙄 Sarcasm Level (0-5)</label>
+                        <input type="number" id="sarcasm" name="sarcasm" min="0" max="5" value="2" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="tone">🎭 Your Tone</label>
+                        <select id="tone" name="tone" required>
+                            <option value="">Select tone...</option>
+                            {% for tone in tones %}
+                            <option value="{{ tone }}">{{ tone }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="mood">😊 Her Mood Before Conversation</label>
+                    <select id="mood" name="mood" required>
+                        <option value="">Select mood...</option>
+                        {% for mood in moods %}
+                        <option value="{{ mood }}">{{ mood }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <button type="submit" class="predict-btn">🔮 Predict Shut-Ups</button>
+            </form>
+
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <p>Analyzing conversation dynamics...</p>
+            </div>
+
+            <div class="error" id="error"></div>
+
+            <div class="result" id="result">
+                <div class="result-emoji" id="resultEmoji">😌</div>
+                <div class="result-count" id="resultCount">0</div>
+                <div class="result-level" id="resultLevel">SAFE ZONE</div>
+                
+                <div class="danger-meter">
+                    <div class="danger-meter-fill" id="dangerMeter" style="width: 0%; background: #28a745;">
+                        <span id="dangerPercentage">0%</span>
+                    </div>
+                </div>
+
+                <div class="advice" id="advice">
+                    Safe to proceed! This conversation should go smoothly.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('predictionForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Get form data
+            const formData = {
+                topic: document.getElementById('topic').value,
+                duration: document.getElementById('duration').value,
+                jokes: document.getElementById('jokes').value,
+                sarcasm: document.getElementById('sarcasm').value,
+                tone: document.getElementById('tone').value,
+                mood: document.getElementById('mood').value
+            };
+
+            // Show loading, hide result and error
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('result').style.display = 'none';
+            document.getElementById('error').style.display = 'none';
+
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                // Hide loading
+                document.getElementById('loading').style.display = 'none';
+
+                if (data.error) {
+                    document.getElementById('error').textContent = 'Error: ' + data.error;
+                    document.getElementById('error').style.display = 'block';
+                } else {
+                    // Update result display
+                    document.getElementById('resultEmoji').textContent = data.danger_emoji;
+                    document.getElementById('resultCount').textContent = data.shutup_count;
+                    document.getElementById('resultLevel').textContent = data.danger_level;
+                    document.getElementById('resultLevel').style.color = data.danger_color;
+                    document.getElementById('advice').textContent = data.advice;
+
+                    // Update danger meter
+                    const dangerMeter = document.getElementById('dangerMeter');
+                    dangerMeter.style.width = data.danger_percentage + '%';
+                    dangerMeter.style.background = data.danger_color;
+                    document.getElementById('dangerPercentage').textContent = data.danger_percentage + '%';
+
+                    // Show result
+                    document.getElementById('result').style.display = 'block';
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').textContent = 'Error: ' + error.message;
+                document.getElementById('error').style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
